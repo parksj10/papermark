@@ -65,33 +65,151 @@ git clone https://github.com/mfts/papermark.git
 cd papermark
 ```
 
-### 2. Install npm dependencies
+### Without Docker
+
+#### 2. Install npm dependencies
 
 ```shell
 npm install
 ```
 
-### 3. Copy the environment variables to `.env` and change the values
+#### 3. Copy the environment variables to `.env` and change the values
 
 ```shell
 cp .env.example .env
 ```
 
-### 4. Initialize the database
+#### 4. Initialize the database
 
 ```shell
-npm run dev:prisma
+npx prisma generate
+npx prisma migrate deploy
 ```
 
-### 5. Run the dev server
+#### 5. Run the dev server
 
 ```shell
 npm run dev
 ```
 
-### 6. Open the app in your browser
+#### 6. Open the app in your browser
 
 Visit [http://localhost:3000](http://localhost:3000) in your browser.
+
+### with Docker
+
+#### 2. Copy the environment variables to `.env` and update for local development
+
+```shell
+cp .env.example .env
+```
+
+**Important:** For Docker development, you need to add the database variables to your `.env` file. Add these lines to your `.env` file:
+
+```env
+DATABASE_URL="postgresql://postgres:mysecretpassword@papermark-db:5432/paper?schema=public"
+POSTGRES_PRISMA_URL="postgresql://postgres:mysecretpassword@papermark-db:5432/paper?schema=public"
+POSTGRES_PRISMA_URL_NON_POOLING="postgresql://postgres:mysecretpassword@papermark-db:5432/paper?schema=public"
+```
+
+The other required variables for a minimal local setup are:
+
+```env
+NEXTAUTH_SECRET=your-nextauth-secret-here
+NEXTAUTH_URL=http://localhost:3000
+NEXT_PUBLIC_BASE_URL=http://localhost:3000
+NEXT_PUBLIC_MARKETING_URL=http://localhost:3000
+NEXT_PUBLIC_APP_BASE_HOST=localhost
+NEXT_PRIVATE_DOCUMENT_PASSWORD_KEY=your-document-password-secret-here
+NEXT_PUBLIC_UPLOAD_TRANSPORT="vercel"
+NEXT_PRIVATE_UPLOAD_DISTRIBUTION_HOST="placeholder.com"
+```
+
+**Note:** You can generate secure secrets for `NEXTAUTH_SECRET` and `NEXT_PRIVATE_DOCUMENT_PASSWORD_KEY` using:
+```shell
+openssl rand -base64 32
+```
+
+For file upload functionality to work properly, you'll need to configure either:
+
+- Vercel Blob storage (set `BLOB_READ_WRITE_TOKEN`)
+- AWS S3 (configure the S3 variables)
+
+For email functionality, add your Resend API key:
+
+```env
+RESEND_API_KEY=your-resend-api-key
+```
+
+#### 3. Run docker compose up
+
+```shell
+docker compose up
+```
+
+This will:
+
+1. Start the PostgreSQL database
+2. Wait for the database to be healthy
+3. Build and start the app container
+4. Run Prisma migrations automatically
+5. Start the Next.js development server
+
+#### 4. Open the app in your browser
+
+Visit [http://localhost:3000](http://localhost:3000) in your browser.
+
+## Local Development Notes
+
+### Authentication
+For local development, you don't need to configure email sending. When you try to login with an email:
+
+1. Go to [http://localhost:3000/login](http://localhost:3000/login)
+2. Enter any email address and click "Continue with Email"
+3. Check your terminal/console output for the magic login link
+4. Copy and paste that URL into your browser to login
+
+### Datarooms
+By default, datarooms require a paid plan. For local development, you can bypass this restriction by setting:
+
+```env
+ENABLE_DATAROOMS_FOR_ALL=true
+ENABLE_DATAROOMS_FOR_ALL=true
+```
+
+This allows free/pro plans to create and use datarooms in your local environment.
+
+## Troubleshooting
+
+### Common Prisma Issues
+
+If you encounter Prisma-related errors, try these solutions:
+
+**"Environment variable not found" error:**
+
+- Make sure your `.env` file contains all required database variables:
+  - `DATABASE_URL`
+  - `POSTGRES_PRISMA_URL`
+  - `POSTGRES_PRISMA_URL_NON_POOLING`
+- For Docker: All three should point to `postgresql://postgres:mysecretpassword@papermark-db:5432/paper?schema=public`
+- For local PostgreSQL: `postgresql://username:password@localhost:5432/database_name?schema=public`
+
+**Database connection issues:**
+
+- Ensure PostgreSQL is running and accessible
+- For Docker: Make sure the database container is healthy before the app starts (this is handled automatically by `depends_on` in docker-compose.yml)
+- For local setup: Start your PostgreSQL service
+
+**Prisma migration errors:**
+
+- Reset the database: `npx prisma migrate reset` (this will delete all data)
+- Generate Prisma client: `npx prisma generate`
+- Apply migrations: `npx prisma migrate deploy`
+
+**"Schema not found" errors:**
+
+- The database URL should include `?schema=public` at the end
+- Make sure the database exists and is accessible
 
 ## Tinybird Instructions
 
