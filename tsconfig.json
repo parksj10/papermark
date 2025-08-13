@@ -16,7 +16,10 @@
     "jsx": "preserve",
     "incremental": true,
     "paths": {
-      "@/*": ["./*"]
+      "@/*": ["./*"],
+      "@/lib/swr/use-billing": ["./lib/overrides/plan-overrides"],
+      "@/ee/limits/swr-handler": ["./lib/overrides/plan-overrides"],
+      "@/ee/limits/server": ["./lib/overrides/plan-overrides"]
     },
     "plugins": [
       {
