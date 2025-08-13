@@ -8,6 +8,8 @@ import { getServerSession } from "next-auth/next";
 import path from "node:path";
 
 import { getTeamS3ClientAndConfig } from "@/lib/files/aws-client";
+import { LocalS3Store } from "@/lib/files/local-s3-store";
+import { MemoryLocker } from "@/lib/files/tus-memory-locker";
 import { RedisLocker } from "@/lib/files/tus-redis-locker";
 import { newId } from "@/lib/id-helper";
 import { lockerRedisClient } from "@/lib/redis";
@@ -21,9 +23,22 @@ export const config = {
   },
 };
 
-const locker = new RedisLocker({
-  redisClient: lockerRedisClient,
-});
+// Use memory locker for local development, Redis locker for production
+const isLocalDevelopment =
+  process.env.NODE_ENV === "development" &&
+  (!process.env.UPSTASH_REDIS_REST_LOCKER_URL ||
+    !process.env.UPSTASH_REDIS_REST_LOCKER_TOKEN);
+
+const locker = isLocalDevelopment
+  ? new MemoryLocker()
+  : new RedisLocker({
+      redisClient: lockerRedisClient,
+    });
+
+// Use local S3 store for development, multi-region store for production
+const datastore = isLocalDevelopment
+  ? new LocalS3Store()
+  : new MultiRegionS3Store();
 
 const tusServer = new Server({
   // `path` needs to match the route declared by the next file router
@@ -31,7 +46,7 @@ const tusServer = new Server({
   maxSize: 1024 * 1024 * 1024 * 2, // 2 GiB
   respectForwardedHeaders: true,
   locker,
-  datastore: new MultiRegionS3Store(),
+  datastore,
   namingFunction(req, metadata) {
     const { teamId, fileName } = metadata as {
       teamId: string;
@@ -69,6 +84,12 @@ const tusServer = new Server({
       // The Key (object path) where the file was uploaded
       const objectKey = upload.id;
 
+      if (isLocalDevelopment) {
+        // For local development, skip the complex metadata update
+        // The file is already uploaded to MinIO, just return success
+        return res;
+      }
+
       // Extract teamId from the object key (format: teamId/docId/filename)
       const teamId = objectKey.split("/")[0];
       if (!teamId) {
@@ -98,9 +119,12 @@ const tusServer = new Server({
   },
 });
 
-export default function handler(req: NextApiRequest, res: NextApiResponse) {
+export default async function handler(
+  req: NextApiRequest,
+  res: NextApiResponse,
+) {
   // Get the session
-  const session = getServerSession(req, res, authOptions);
+  const session = await getServerSession(req, res, authOptions);
   if (!session) {
     return res.status(401).json({ message: "Unauthorized" });
   }

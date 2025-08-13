@@ -64,7 +64,7 @@ export const processDocument = async ({
     where: {
       teamId_path: {
         teamId,
-        path: "/" + folderPathName,
+        path: "/" + (folderPathName || ""),
       },
     },
     select: {
@@ -119,7 +119,10 @@ export const processDocument = async ({
   });
 
   // Trigger appropriate conversion tasks based on document type
-  if (type === "docs" || type === "slides") {
+  if (
+    process.env.TRIGGER_SECRET_KEY &&
+    (type === "docs" || type === "slides")
+  ) {
     await convertFilesToPdfTask.trigger(
       {
         documentId: document.id,
@@ -139,7 +142,7 @@ export const processDocument = async ({
     );
   }
 
-  if (type === "cad") {
+  if (process.env.TRIGGER_SECRET_KEY && type === "cad") {
     await convertCadToPdfTask.trigger(
       {
         documentId: document.id,
@@ -159,7 +162,11 @@ export const processDocument = async ({
     );
   }
 
-  if (type === "video" && contentType !== "video/mp4") {
+  if (
+    process.env.TRIGGER_SECRET_KEY &&
+    type === "video" &&
+    contentType !== "video/mp4"
+  ) {
     await processVideo.trigger(
       {
         videoUrl: key,
@@ -182,7 +189,7 @@ export const processDocument = async ({
   }
 
   // skip triggering convert-pdf-to-image job for "notion" / "excel" documents
-  if (type === "pdf") {
+  if (process.env.TRIGGER_SECRET_KEY && type === "pdf") {
     await convertPdfToImageRoute.trigger(
       {
         documentId: document.id,

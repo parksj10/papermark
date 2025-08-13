@@ -231,6 +231,15 @@ function prepareRemotePatterns() {
       protocol: "https",
       hostname: "36so9a8uzykxknsu.public.blob.vercel-storage.com",
     });
+    
+    // MinIO local development support
+    if (process.env.NEXT_PRIVATE_UPLOAD_DISTRIBUTION_HOST === "localhost:9000") {
+      patterns.push({
+        protocol: "http",
+        hostname: "localhost",
+        port: "9000",
+      });
+    }
   }
 
   return patterns;

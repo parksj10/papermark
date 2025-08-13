@@ -18,6 +18,39 @@ services:
       timeout: 5s
       retries: 5
 
+  minio:
+    image: minio/minio:latest
+    container_name: papermark-minio
+    restart: always
+    ports:
+      - "9000:9000"    # MinIO API
+      - "9001:9001"    # MinIO Console
+    environment:
+      MINIO_ROOT_USER: papermark
+      MINIO_ROOT_PASSWORD: papermark123
+    volumes:
+      - minio-data:/data
+    command: server /data --console-address ":9001"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+
+  createbuckets:
+    image: minio/mc:latest
+    container_name: papermark-minio-setup
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: >
+      /bin/sh -c "
+      /usr/bin/mc alias set myminio http://minio:9000 papermark papermark123;
+      /usr/bin/mc mb myminio/papermark-uploads --ignore-existing;
+      /usr/bin/mc policy set public myminio/papermark-uploads;
+      exit 0;
+      "
+
   app:
     build: .
     container_name: app
@@ -31,6 +64,9 @@ services:
     depends_on:
       papermark-db:
         condition: service_healthy
+      createbuckets:
+        condition: service_completed_successfully
 
 volumes:
   postgres-data:
+  minio-data:

@@ -100,6 +100,16 @@ Visit [http://localhost:3000](http://localhost:3000) in your browser.
 
 #### 2. Copy the environment variables to `.env` and update for local development
 
+For a quick start with MinIO (S3-compatible storage), copy the local development template:
+
+```shell
+cp .env.local.example .env
+```
+
+This will automatically configure MinIO for local file storage.
+
+**Alternative:** If you prefer to start from the main example and configure manually:
+
 ```shell
 cp .env.example .env
 ```
@@ -121,19 +131,42 @@ NEXT_PUBLIC_BASE_URL=http://localhost:3000
 NEXT_PUBLIC_MARKETING_URL=http://localhost:3000
 NEXT_PUBLIC_APP_BASE_HOST=localhost
 NEXT_PRIVATE_DOCUMENT_PASSWORD_KEY=your-document-password-secret-here
+```
+
+**File Storage Options:**
+
+1. **MinIO (Recommended for local development)** - S3-compatible storage that runs locally:
+```env
+NEXT_PUBLIC_UPLOAD_TRANSPORT="s3"
+NEXT_PRIVATE_UPLOAD_ENDPOINT="http://localhost:9000"
+NEXT_PRIVATE_UPLOAD_REGION="us-east-1"
+NEXT_PRIVATE_UPLOAD_BUCKET="papermark-uploads"
+NEXT_PRIVATE_UPLOAD_ACCESS_KEY_ID="papermark"
+NEXT_PRIVATE_UPLOAD_SECRET_ACCESS_KEY="papermark123"
+NEXT_PRIVATE_UPLOAD_DISTRIBUTION_HOST="localhost:9000"
+```
+
+2. **Vercel Blob** (requires Vercel account):
+```env
 NEXT_PUBLIC_UPLOAD_TRANSPORT="vercel"
-NEXT_PRIVATE_UPLOAD_DISTRIBUTION_HOST="placeholder.com"
+BLOB_READ_WRITE_TOKEN=your-vercel-blob-token
+NEXT_PRIVATE_UPLOAD_DISTRIBUTION_HOST="your-blob-store.public.blob.vercel-storage.com"
+```
+
+3. **AWS S3** (requires AWS account):
+```env
+NEXT_PUBLIC_UPLOAD_TRANSPORT="s3"
+NEXT_PRIVATE_UPLOAD_REGION="us-east-1"
+NEXT_PRIVATE_UPLOAD_BUCKET="your-bucket-name"
+NEXT_PRIVATE_UPLOAD_ACCESS_KEY_ID="your-access-key"
+NEXT_PRIVATE_UPLOAD_SECRET_ACCESS_KEY="your-secret-key"
+NEXT_PRIVATE_UPLOAD_DISTRIBUTION_HOST="your-bucket.s3.region.amazonaws.com"
 ```
 
 **Note:** You can generate secure secrets for `NEXTAUTH_SECRET` and `NEXT_PRIVATE_DOCUMENT_PASSWORD_KEY` using:
 ```shell
 openssl rand -base64 32
 ```
-
-For file upload functionality to work properly, you'll need to configure either:
-
-- Vercel Blob storage (set `BLOB_READ_WRITE_TOKEN`)
-- AWS S3 (configure the S3 variables)
 
 For email functionality, add your Resend API key:
 
@@ -150,14 +183,20 @@ docker compose up
 This will:
 
 1. Start the PostgreSQL database
-2. Wait for the database to be healthy
-3. Build and start the app container
-4. Run Prisma migrations automatically
-5. Start the Next.js development server
+2. Start MinIO (S3-compatible storage) with a web console at [http://localhost:9001](http://localhost:9001)
+3. Create the `papermark-uploads` bucket automatically
+4. Wait for services to be healthy
+5. Build and start the app container
+6. Run Prisma migrations automatically
+7. Start the Next.js development server
 
 #### 4. Open the app in your browser
 
 Visit [http://localhost:3000](http://localhost:3000) in your browser.
+
+**MinIO Console:** You can access the MinIO console at [http://localhost:9001](http://localhost:9001) with credentials:
+- Username: `papermark`
+- Password: `papermark123`
 
 ## Local Development Notes
 
