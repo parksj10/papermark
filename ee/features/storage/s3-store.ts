@@ -33,6 +33,8 @@ export class MultiRegionS3Store extends S3Store {
         accessKeyId: euConfig.accessKeyId,
         secretAccessKey: euConfig.secretAccessKey,
       },
+      endpoint: euConfig.endpoint || undefined,
+      forcePathStyle: !!euConfig.endpoint,
     };
 
     super({
@@ -51,6 +53,8 @@ export class MultiRegionS3Store extends S3Store {
         accessKeyId: euConfig.accessKeyId,
         secretAccessKey: euConfig.secretAccessKey,
       },
+      endpoint: euConfig.endpoint || undefined,
+      forcePathStyle: !!euConfig.endpoint,
     };
 
     this.euClient = new S3(euS3Config);
@@ -67,6 +71,8 @@ export class MultiRegionS3Store extends S3Store {
           accessKeyId: this.usConfig.accessKeyId,
           secretAccessKey: this.usConfig.secretAccessKey,
         },
+        endpoint: this.usConfig.endpoint || undefined,
+        forcePathStyle: !!this.usConfig.endpoint,
       };
 
       this.usClient = new S3(usS3Config);

@@ -18,6 +18,72 @@ services:
       timeout: 5s
       retries: 5
 
+  # MinIO – S3-compatible storage
+  minio:
+    image: minio/minio:latest
+    container_name: minio
+    restart: always
+    command: server --console-address ":9001" /data
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    ports:
+      - "9000:9000" # API
+      - "9001:9001" # Console
+    volumes:
+      - minio-data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+
+  # One-time init to create buckets and set CORS
+  minio-init:
+    image: minio/mc:latest
+    container_name: minio-init
+    depends_on:
+      minio:
+        condition: service_healthy
+    env_file:
+      - .env
+    entrypoint: >
+      /bin/sh -c "
+      set -e;
+      mc alias set local http://minio:9000 minioadmin minioadmin;
+      if [ -n \"$NEXT_PRIVATE_UPLOAD_BUCKET\" ]; then mc mb -p local/$NEXT_PRIVATE_UPLOAD_BUCKET || true; fi;
+      if [ -n \"$NEXT_PRIVATE_ADVANCED_UPLOAD_BUCKET\" ]; then mc mb -p local/$NEXT_PRIVATE_ADVANCED_UPLOAD_BUCKET || true; fi;
+      cat <<'EOF' >/tmp/cors.json
+      [
+        {
+          \"AllowedOrigin\": [\"http://localhost:3000\"],
+          \"AllowedMethod\": [\"GET\", \"PUT\", \"POST\", \"HEAD\"],
+          \"AllowedHeader\": [\"*\"],
+          \"ExposeHeader\": [\"ETag\"],
+          \"MaxAgeSeconds\": 3000
+        }
+      ]
+      EOF
+      mc admin config set local api cors=\"$(cat /tmp/cors.json)\" || true;
+      exit 0;
+      "
+
+  # Local Redis for rate limiting and tus locker
+  redis:
+    image: redis:7-alpine
+    container_name: papermark-redis
+    restart: always
+    command: ["redis-server", "--save", "60", "1", "--loglevel", "warning"]
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   app:
     build: .
     container_name: app
@@ -31,6 +97,14 @@ services:
     depends_on:
       papermark-db:
         condition: service_healthy
+      minio:
+        condition: service_started
+      minio-init:
+        condition: service_started
+      redis:
+        condition: service_healthy
 
 volumes:
   postgres-data:
+  minio-data:
+  redis-data:

@@ -1,5 +1,4 @@
 import { ERRORS, Lock, Locker, RequestRelease } from "@tus/utils";
-import { Redis } from "@upstash/redis";
 
 /**
  * RedisLocker is an implementation of the Locker interface that manages locks in key-value store using Redis.
@@ -24,12 +23,23 @@ import { Redis } from "@upstash/redis";
 
 interface RedisLockerOptions {
   acquireLockTimeout?: number;
-  redisClient: Redis;
+  redisClient: RedisLike;
+}
+
+// Minimal Redis-like interface compatible with Upstash and ioredis adapters
+export interface RedisLike {
+  get(key: string): Promise<string | null>;
+  set(
+    key: string,
+    value: string,
+    options?: { nx?: boolean; px?: number },
+  ): Promise<any>;
+  del(key: string): Promise<number>;
 }
 
 export class RedisLocker implements Locker {
   timeout: number;
-  redisClient: Redis;
+  redisClient: RedisLike;
 
   constructor(options: RedisLockerOptions) {
     this.timeout = options.acquireLockTimeout ?? 1000 * 30; // default: 30 seconds
@@ -89,7 +99,7 @@ class RedisLock implements Lock {
     }
 
     // Check if the release was requested
-    const releaseRequestStr: string | null = await this.locker.redisClient.get(
+    const releaseRequestStr = await this.locker.redisClient.get(
       `requestRelease:${lockKey}`,
     );
     if (releaseRequestStr === "true") {

@@ -120,128 +120,167 @@ export const processDocument = async ({
 
   // Trigger appropriate conversion tasks based on document type
   if (type === "docs" || type === "slides") {
-    await convertFilesToPdfTask.trigger(
-      {
-        documentId: document.id,
-        documentVersionId: document.versions[0].id,
-        teamId,
-      },
-      {
-        idempotencyKey: `${teamId}-${document.versions[0].id}-docs`,
-        tags: [
-          `team_${teamId}`,
-          `document_${document.id}`,
-          `version:${document.versions[0].id}`,
-        ],
-        queue: conversionQueue(teamPlan),
-        concurrencyKey: teamId,
-      },
-    );
+    try {
+      await convertFilesToPdfTask.trigger(
+        {
+          documentId: document.id,
+          documentVersionId: document.versions[0].id,
+          teamId,
+        },
+        {
+          idempotencyKey: `${teamId}-${document.versions[0].id}-docs`,
+          tags: [
+            `team_${teamId}`,
+            `document_${document.id}`,
+            `version:${document.versions[0].id}`,
+          ],
+          queue: conversionQueue(teamPlan),
+          concurrencyKey: teamId,
+        },
+      );
+    } catch (err) {
+      console.error(
+        "convertFilesToPdfTask trigger failed:",
+        (err as Error)?.message || err,
+      );
+    }
   }
 
   if (type === "cad") {
-    await convertCadToPdfTask.trigger(
-      {
-        documentId: document.id,
-        documentVersionId: document.versions[0].id,
-        teamId,
-      },
-      {
-        idempotencyKey: `${teamId}-${document.versions[0].id}-cad`,
-        tags: [
-          `team_${teamId}`,
-          `document_${document.id}`,
-          `version:${document.versions[0].id}`,
-        ],
-        queue: conversionQueue(teamPlan),
-        concurrencyKey: teamId,
-      },
-    );
+    try {
+      await convertCadToPdfTask.trigger(
+        {
+          documentId: document.id,
+          documentVersionId: document.versions[0].id,
+          teamId,
+        },
+        {
+          idempotencyKey: `${teamId}-${document.versions[0].id}-cad`,
+          tags: [
+            `team_${teamId}`,
+            `document_${document.id}`,
+            `version:${document.versions[0].id}`,
+          ],
+          queue: conversionQueue(teamPlan),
+          concurrencyKey: teamId,
+        },
+      );
+    } catch (err) {
+      console.error(
+        "convertCadToPdfTask trigger failed:",
+        (err as Error)?.message || err,
+      );
+    }
   }
 
   if (type === "video" && contentType !== "video/mp4") {
-    await processVideo.trigger(
-      {
-        videoUrl: key,
-        teamId,
-        docId: key.split("/")[1], // Extract doc_xxxx from teamId/doc_xxxx/filename
-        documentVersionId: document.versions[0].id,
-        fileSize: fileSize || 0,
-      },
-      {
-        idempotencyKey: `${teamId}-${document.versions[0].id}`,
-        tags: [
-          `team_${teamId}`,
-          `document_${document.id}`,
-          `version:${document.versions[0].id}`,
-        ],
-        queue: conversionQueue(teamPlan),
-        concurrencyKey: teamId,
-      },
-    );
+    try {
+      await processVideo.trigger(
+        {
+          videoUrl: key,
+          teamId,
+          docId: key.split("/")[1], // Extract doc_xxxx from teamId/doc_xxxx/filename
+          documentVersionId: document.versions[0].id,
+          fileSize: fileSize || 0,
+        },
+        {
+          idempotencyKey: `${teamId}-${document.versions[0].id}`,
+          tags: [
+            `team_${teamId}`,
+            `document_${document.id}`,
+            `version:${document.versions[0].id}`,
+          ],
+          queue: conversionQueue(teamPlan),
+          concurrencyKey: teamId,
+        },
+      );
+    } catch (err) {
+      console.error(
+        "processVideo trigger failed:",
+        (err as Error)?.message || err,
+      );
+    }
   }
 
   // skip triggering convert-pdf-to-image job for "notion" / "excel" documents
   if (type === "pdf") {
-    await convertPdfToImageRoute.trigger(
-      {
-        documentId: document.id,
-        documentVersionId: document.versions[0].id,
-        teamId,
-      },
-      {
-        idempotencyKey: `${teamId}-${document.versions[0].id}`,
-        tags: [
-          `team_${teamId}`,
-          `document_${document.id}`,
-          `version:${document.versions[0].id}`,
-        ],
-        queue: conversionQueue(teamPlan),
-        concurrencyKey: teamId,
-      },
-    );
-  }
-
-  if (type === "sheet" && enableExcelAdvancedMode) {
-    await copyFileToBucketServer({
-      filePath: document.versions[0].file,
-      storageType: document.versions[0].storageType,
-      teamId,
-    });
-
-    await prisma.documentVersion.update({
-      where: { id: document.versions[0].id },
-      data: { numPages: 1 },
-    });
-
     try {
-      await fetch(
-        `${process.env.NEXTAUTH_URL}/api/revalidate?secret=${process.env.REVALIDATE_TOKEN}&documentId=${document.id}`,
+      await convertPdfToImageRoute.trigger(
+        {
+          documentId: document.id,
+          documentVersionId: document.versions[0].id,
+          teamId,
+        },
+        {
+          idempotencyKey: `${teamId}-${document.versions[0].id}`,
+          tags: [
+            `team_${teamId}`,
+            `document_${document.id}`,
+            `version:${document.versions[0].id}`,
+          ],
+          queue: conversionQueue(teamPlan),
+          concurrencyKey: teamId,
+        },
       );
-    } catch (error) {
-      console.error("Failed to revalidate document:", error);
-      // The document is still updated, so we can continue without throwing
+    } catch (err) {
+      console.error(
+        "convertPdfToImageRoute trigger failed:",
+        (err as Error)?.message || err,
+      );
     }
   }
 
-  // Send webhooks
-  await Promise.all([
-    !isExternalUpload &&
-      sendDocumentCreatedWebhook({
+  if (type === "sheet" && enableExcelAdvancedMode) {
+    try {
+      await copyFileToBucketServer({
+        filePath: document.versions[0].file,
+        storageType: document.versions[0].storageType,
         teamId,
-        data: {
-          document_id: document.id,
-        },
-      }),
-    createLink &&
-      sendLinkCreatedWebhook({
-        teamId,
-        data: {
-          document_id: document.id,
-          link_id: document.links[0].id,
-        },
-      }),
-  ]);
+      });
+
+      await prisma.documentVersion.update({
+        where: { id: document.versions[0].id },
+        data: { numPages: 1 },
+      });
+
+      try {
+        await fetch(
+          `${process.env.NEXTAUTH_URL}/api/revalidate?secret=${process.env.REVALIDATE_TOKEN}&documentId=${document.id}`,
+        );
+      } catch (error) {
+        console.error("Failed to revalidate document:", error);
+        // The document is still updated, so we can continue without throwing
+      }
+    } catch (err) {
+      console.error(
+        "Advanced Excel post-processing failed:",
+        (err as Error)?.message || err,
+      );
+    }
+  }
+
+  // Send webhooks (best-effort)
+  try {
+    await Promise.all([
+      !isExternalUpload &&
+        sendDocumentCreatedWebhook({
+          teamId,
+          data: {
+            document_id: document.id,
+          },
+        }),
+      createLink &&
+        sendLinkCreatedWebhook({
+          teamId,
+          data: {
+            document_id: document.id,
+            link_id: document.links[0].id,
+          },
+        }),
+    ]);
+  } catch (err) {
+    console.error("Webhook dispatch failed:", (err as Error)?.message || err);
+  }
 
   return document;
 };
