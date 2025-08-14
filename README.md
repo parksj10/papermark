@@ -73,10 +73,46 @@ cd papermark
 npm install
 ```
 
-#### 3. Copy the environment variables to `.env` and change the values
+#### 3. Setup environment variables
+
+For local development without Docker, copy the example environment file:
 
 ```shell
 cp .env.example .env
+```
+
+Then configure the required variables in your `.env` file:
+
+**Required variables:**
+
+```env
+NEXTAUTH_SECRET=your-nextauth-secret-here
+NEXTAUTH_URL=http://localhost:3000
+NEXT_PUBLIC_BASE_URL=http://localhost:3000
+NEXT_PUBLIC_MARKETING_URL=http://localhost:3000
+NEXT_PUBLIC_APP_BASE_HOST=localhost
+NEXT_PRIVATE_DOCUMENT_PASSWORD_KEY=your-document-password-secret-here
+
+# Database - Configure for your local PostgreSQL
+DATABASE_URL="postgresql://username:password@localhost:5432/papermark?schema=public"
+POSTGRES_PRISMA_URL="postgresql://username:password@localhost:5432/papermark?schema=public"
+POSTGRES_PRISMA_URL_NON_POOLING="postgresql://username:password@localhost:5432/papermark?schema=public"
+
+# Storage - Choose one option:
+# Option 1: Vercel Blob (requires BLOB_READ_WRITE_TOKEN)
+NEXT_PUBLIC_UPLOAD_TRANSPORT="vercel"
+BLOB_READ_WRITE_TOKEN=your-vercel-blob-token
+
+# Option 2: AWS S3 (configure all S3 variables)
+# NEXT_PUBLIC_UPLOAD_TRANSPORT="s3"
+# NEXT_PRIVATE_UPLOAD_BUCKET="your-bucket-name"
+# ... (see .env.example for full S3 config)
+```
+
+**Generate secure secrets:**
+
+```shell
+openssl rand -base64 32
 ```
 
 #### 4. Initialize the database
@@ -98,47 +134,38 @@ Visit [http://localhost:3000](http://localhost:3000) in your browser.
 
 ### with Docker
 
-#### 2. Copy the environment variables to `.env` and update for local development
+#### 2. Copy the local environment configuration
 
 ```shell
-cp .env.example .env
+cp .env.local.example .env
 ```
 
-**Important:** For Docker development, you need to add the database variables to your `.env` file. Add these lines to your `.env` file:
+**For Docker development, we provide a pre-configured `.env.local.example` file** that includes:
 
-```env
-DATABASE_URL="postgresql://postgres:mysecretpassword@papermark-db:5432/paper?schema=public"
-POSTGRES_PRISMA_URL="postgresql://postgres:mysecretpassword@papermark-db:5432/paper?schema=public"
-POSTGRES_PRISMA_URL_NON_POOLING="postgresql://postgres:mysecretpassword@papermark-db:5432/paper?schema=public"
-```
+- ✅ **PostgreSQL database** connection (papermark-db container)
+- ✅ **MinIO S3-compatible storage** (localhost:9000) with auto-bucket creation
+- ✅ **Redis** for rate limiting and background jobs
+- ✅ **Local development secrets** (change these in production!)
+- ✅ **Datarooms enabled** for all plans in local development
 
-The other required variables for a minimal local setup are:
+**What's included in the Docker setup:**
 
-```env
-NEXTAUTH_SECRET=your-nextauth-secret-here
-NEXTAUTH_URL=http://localhost:3000
-NEXT_PUBLIC_BASE_URL=http://localhost:3000
-NEXT_PUBLIC_MARKETING_URL=http://localhost:3000
-NEXT_PUBLIC_APP_BASE_HOST=localhost
-NEXT_PRIVATE_DOCUMENT_PASSWORD_KEY=your-document-password-secret-here
-NEXT_PUBLIC_UPLOAD_TRANSPORT="vercel"
-NEXT_PRIVATE_UPLOAD_DISTRIBUTION_HOST="placeholder.com"
-```
+- PostgreSQL database on port 5432
+- MinIO S3-compatible storage on ports 9000 (API) and 9001 (Console)
+- Redis on port 6379
+- Automatic bucket creation and CORS configuration
 
-**Note:** You can generate secure secrets for `NEXTAUTH_SECRET` and `NEXT_PRIVATE_DOCUMENT_PASSWORD_KEY` using:
+**Optional services** (uncomment in `.env` if needed):
+
+- **Email:** Add `RESEND_API_KEY` for email functionality
+- **Analytics:** Add `TINYBIRD_TOKEN` for analytics features  
+- **Google Auth:** Add `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`
+- **Background Jobs:** Add QStash tokens for queue processing
+
+**Security Note:** The `.env.local.example` file contains development-only secrets. For production, generate secure secrets using:
+
 ```shell
 openssl rand -base64 32
-```
-
-For file upload functionality to work properly, you'll need to configure either:
-
-- Vercel Blob storage (set `BLOB_READ_WRITE_TOKEN`)
-- AWS S3 (configure the S3 variables)
-
-For email functionality, add your Resend API key:
-
-```env
-RESEND_API_KEY=your-resend-api-key
 ```
 
 #### 3. Run docker compose up
@@ -159,7 +186,23 @@ This will:
 
 Visit [http://localhost:3000](http://localhost:3000) in your browser.
 
+**Additional local services:**
+
+- **MinIO Console:** [http://localhost:9001](http://localhost:9001) (admin: minioadmin/minioadmin)
+- **PostgreSQL:** localhost:5432 (postgres/mysecretpassword)
+- **Redis:** localhost:6379
+
 ## Local Development Notes
+
+### File Storage with MinIO
+
+When using Docker, the setup includes MinIO (S3-compatible storage) that automatically:
+
+- Creates the required buckets (`papermark` and `papermark-advanced`)
+- Configures CORS settings for local development
+- Provides a web console at [http://localhost:9001](http://localhost:9001)
+
+You can upload and manage files through the MinIO console or directly through the Papermark application.
 
 ### Authentication
 For local development, you don't need to configure email sending. When you try to login with an email:
@@ -170,6 +213,7 @@ For local development, you don't need to configure email sending. When you try t
 4. Copy and paste that URL into your browser to login
 
 ### Datarooms
+
 By default, datarooms require a paid plan. For local development, you can bypass this restriction by setting:
 
 ```env
